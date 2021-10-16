@@ -1,0 +1,2 @@
+rootProject.name = "TaskA_Yoga"
+include ':app'
