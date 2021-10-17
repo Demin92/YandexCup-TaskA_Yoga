@@ -1,43 +1,38 @@
 package ru.demin.taska_yoga
 
-import android.media.MediaRecorder
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.os.CountDownTimer
-import android.util.Log
+import android.view.ViewGroup
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
+import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import kotlinx.android.synthetic.main.activity_main.*
-import java.io.File
 
 class MainActivity : AppCompatActivity() {
-    private var audioRecorder: MediaRecorder? = null
-    private var countDownTimer: CountDownTimer? = null
+
+    private val viewModel: MainViewModel by viewModels { MainViewModelFactory(application) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        start.setOnClickListener {
+        btn.setOnClickListener {
             if (!RecordAudioPermissionHelper.hasRecordAudioPermission(this)) {
                 RecordAudioPermissionHelper.requestRecordAudioPermission(this)
             } else {
-                start()
-
-                countDownTimer = object : CountDownTimer(60_000, 100) {
-                    override fun onTick(tickTime: Long) {
-                        val volume = getVolume()
-                        Log.d(TAG, "tickTime = $tickTime volume = $volume")
-                    }
-                    override fun onFinish() = Unit
-                }.apply { start() }
+                viewModel.onButtonClick()
             }
         }
-
-        stop.setOnClickListener {
-            stop()
-            countDownTimer?.cancel()
-            countDownTimer = null
+        viewModel.viewState.observe(this) { state ->
+            btn.text = resources.getString(if (state.isTrainingStarted) R.string.stop else R.string.start)
+            volume_view.isVisible = state.isTrainingStarted && state.volume > 0
+            if (state.isTrainingStarted) {
+                volume_view.updateLayoutParams<ViewGroup.LayoutParams> {
+                    width = (state.volume * VOLUME_VISUAL_KOEF).toInt()
+                    height = (state.volume * VOLUME_VISUAL_KOEF).toInt()
+                }
+            }
         }
     }
 
@@ -52,45 +47,17 @@ class MainActivity : AppCompatActivity() {
                 this,
                 "Record Audio permission is needed to run this application",
                 Toast.LENGTH_LONG
-            )
-                .show()
+            ).show()
+
             if (!RecordAudioPermissionHelper.shouldShowRequestPermissionRationale(this)) {
-                // Permission denied with checking "Do not ask again".
                 RecordAudioPermissionHelper.launchPermissionSettings(this)
             }
-            finish()
+        } else {
+            viewModel.onButtonClick()
         }
-
-        recreate()
-    }
-
-
-    private fun start() {
-        audioRecorder = MediaRecorder().apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.AAC_ADTS)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setOutputFile(getAudioPath())
-            prepare()
-            start()
-        }
-    }
-
-    private fun getAudioPath(): String {
-        return "${cacheDir.absolutePath}${File.pathSeparator}${System.currentTimeMillis()}.wav"
-    }
-
-    private fun getVolume() = audioRecorder?.maxAmplitude ?: 0
-
-    private fun stop() {
-        audioRecorder?.let {
-            it.stop()
-            it.release()
-        }
-        audioRecorder = null
     }
 
     companion object {
-        private const val TAG = "Povarity"
+        private const val VOLUME_VISUAL_KOEF = 0.05f
     }
 }

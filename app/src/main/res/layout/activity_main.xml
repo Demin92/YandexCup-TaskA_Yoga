@@ -6,22 +6,25 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <Button
-        android:id="@+id/start"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Start"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
+    <View
+        android:id="@+id/volume_view"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/volume_view_bg"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/btn"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
     <Button
-        android:id="@+id/stop"
+        android:id="@+id/btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Stop"
+        android:layout_marginBottom="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent" />
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>
