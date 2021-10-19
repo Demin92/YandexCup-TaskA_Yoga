@@ -1,7 +1,10 @@
 package ru.demin.taska_yoga
 
 import android.app.Application
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.media.MediaRecorder
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -17,14 +20,13 @@ class MainViewModel(private val context: Application) : ViewModel() {
     private var times = 0
 
     private val breatheTickList = mutableListOf<BreatheTick>()
-    private val report = mutableListOf<BreatheItem>()
     private val handler = Handler(Looper.getMainLooper())
 
     private val averageNoiseRunnable = object : Runnable {
         override fun run() {
             audioRecorder?.let { mediaRecorder ->
                 mediaRecorder.maxAmplitude.takeIf { it > 0 }?.let { volume ->
-                    sumNoise += volume.also { Log.d("Povarity", "Noise $volume") }
+                    sumNoise += volume
                     times++
                 }
             }
@@ -42,14 +44,14 @@ class MainViewModel(private val context: Application) : ViewModel() {
             audioRecorder?.let { mediaRecorder ->
                 breatheTickList.add(BreatheTick(System.currentTimeMillis(), mediaRecorder.maxAmplitude.also { volume ->
                     viewState.value = viewState.value!!.copy(volume = volume)
-                }).also { Log.d("Povarity", "$it") }
-                )
+                }))
             }
             handler.postDelayed(this, VOLUME_MEASURE_INTERVAL_IN_MILLIS)
         }
     }
 
     val viewState = MutableLiveData(ViewState())
+    val eventsQueue = EventsQueue()
 
     fun onPermissionGranted() {
         measureAverageNoise()
@@ -60,7 +62,6 @@ class MainViewModel(private val context: Application) : ViewModel() {
     }
 
     private fun onStartClick() {
-        Log.d("Povarity", "averageNoise = $averageNoise")
         if (audioRecorder == null) {
             audioRecorder = createMediaRecorder().apply { start() }
         }
@@ -72,15 +73,8 @@ class MainViewModel(private val context: Application) : ViewModel() {
         viewState.value = viewState.value!!.copy(isTrainingStarted = false, volume = 0)
         stopRecorder()
         handler.removeCallbacks(tickRunnable)
-        createBreatheReport()
-        sendBreatheReport()
-
-        report.forEach {
-            Log.d("Povarity", "$it")
-        }
-
+        eventsQueue.add(ReportReadyEvent(createBreatheReport()))
         breatheTickList.clear()
-        report.clear()
     }
 
     private fun measureAverageNoise() {
@@ -89,12 +83,14 @@ class MainViewModel(private val context: Application) : ViewModel() {
         averageNoiseRunnable.run()
     }
 
-    private fun createBreatheReport() {
+    private fun createBreatheReport(): List<BreatheItem> {
         val inhaleThreshold = averageNoise * INHALE_KOEF
         val exhalationThreshold = averageNoise * EXHALATION_KOEF
 
         var lastMark: BreatheMark? = null
         var lastTime = 0L
+
+        val report = mutableListOf<BreatheItem>()
 
         breatheTickList.forEachIndexed { index, tick ->
             when {
@@ -126,10 +122,7 @@ class MainViewModel(private val context: Application) : ViewModel() {
                 }
             }
         }
-    }
-
-    private fun sendBreatheReport() {
-
+        return report
     }
 
     private fun createMediaRecorder() = MediaRecorder().apply {
@@ -149,18 +142,17 @@ class MainViewModel(private val context: Application) : ViewModel() {
         audioRecorder = null
     }
 
+    enum class BreatheState {
+        INHALE, PAUSE, EXHALATION
+    }
+
+    data class BreatheItem(val state: BreatheState, val time: Int)
+
     private data class BreatheTick(val time: Long, val volume: Int)
 
     private enum class BreatheMark {
         INHALE_START, INHALE_END, EXHALATION_START, EXHALATION_END
     }
-
-    private enum class BreatheState {
-        INHALE, PAUSE, EXHALATION
-    }
-
-    private data class BreatheItem(val state: BreatheState, val time: Int)
-
 
     companion object {
         private const val VOLUME_MEASURE_INTERVAL_IN_MILLIS = 100L

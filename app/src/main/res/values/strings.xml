@@ -3,4 +3,7 @@
     <string name="start">Start</string>
     <string name="stop">Stop</string>
     <string name="average_noise_measuring">Average Noise Measuring…</string>
+    <string name="email" translatable="false" >demin92@yandex.ru</string>
+    <string name="yoga">yoga</string>
+    <string name="select_mail_app">Select mail app</string>
 </resources>

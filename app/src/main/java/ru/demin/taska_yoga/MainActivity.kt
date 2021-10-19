@@ -27,6 +27,11 @@ class MainActivity : AppCompatActivity() {
 
         btn.setOnClickListener { viewModel.onButtonClick() }
         viewModel.viewState.observe(this, ::render)
+        viewModel.eventsQueue.observe(this) { queue ->
+            while (queue != null && queue.isNotEmpty()) {
+                queue.poll()?.let { onEvent(it) }
+            }
+        }
     }
 
     override fun onRequestPermissionsResult(
@@ -47,6 +52,23 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             viewModel.onPermissionGranted()
+        }
+    }
+
+    private fun onEvent(event: Event) {
+        when (event) {
+            is ReportReadyEvent -> {
+                sendEmail(
+                    this,
+                    resources.getString(R.string.select_mail_app),
+                    resources.getString(R.string.email),
+                    resources.getString(R.string.yoga),
+                    StringBuilder().apply {
+                            event.report.forEach { append("${it.state} ${it.time}\n") }
+                        }.toString()
+                )
+            }
+            else -> Unit
         }
     }
 
