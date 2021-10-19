@@ -12,17 +12,38 @@ import java.io.File
 class MainViewModel(private val context: Application) : ViewModel() {
 
     private var audioRecorder: MediaRecorder? = null
-    private var averageNoise = 100
+    private var averageNoise = 0f
+    private var sumNoise = 0
+    private var times = 0
 
     private val breatheTickList = mutableListOf<BreatheTick>()
     private val report = mutableListOf<BreatheItem>()
     private val handler = Handler(Looper.getMainLooper())
+
+    private val averageNoiseRunnable = object : Runnable {
+        override fun run() {
+            audioRecorder?.let { mediaRecorder ->
+                mediaRecorder.maxAmplitude.takeIf { it > 0 }?.let { volume ->
+                    sumNoise += volume.also { Log.d("Povarity", "Noise $volume") }
+                    times++
+                }
+            }
+            if (times < AVERAGE_NOISE_MEASURE_TICK_COUNT) {
+                handler.postDelayed(this, VOLUME_MEASURE_INTERVAL_IN_MILLIS)
+            } else {
+                averageNoise = sumNoise.toFloat() / AVERAGE_NOISE_MEASURE_TICK_COUNT
+                viewState.value = viewState.value!!.copy(isAverageNoiseMeasuring = false)
+            }
+        }
+    }
+
     private val tickRunnable = object : Runnable {
         override fun run() {
             audioRecorder?.let { mediaRecorder ->
                 breatheTickList.add(BreatheTick(System.currentTimeMillis(), mediaRecorder.maxAmplitude.also { volume ->
                     viewState.value = viewState.value!!.copy(volume = volume)
-                }))
+                }).also { Log.d("Povarity", "$it") }
+                )
             }
             handler.postDelayed(this, VOLUME_MEASURE_INTERVAL_IN_MILLIS)
         }
@@ -30,18 +51,25 @@ class MainViewModel(private val context: Application) : ViewModel() {
 
     val viewState = MutableLiveData(ViewState())
 
+    fun onPermissionGranted() {
+        measureAverageNoise()
+    }
+
     fun onButtonClick() {
         if (viewState.value!!.isTrainingStarted) onStopClick() else onStartClick()
     }
 
     private fun onStartClick() {
-        audioRecorder = createMediaRecorder().apply { start() }
+        Log.d("Povarity", "averageNoise = $averageNoise")
+        if (audioRecorder == null) {
+            audioRecorder = createMediaRecorder().apply { start() }
+        }
         tickRunnable.run()
-        viewState.value = ViewState(true, audioRecorder!!.maxAmplitude)
+        viewState.value = viewState.value!!.copy(isTrainingStarted = true, volume = audioRecorder!!.maxAmplitude)
     }
 
     private fun onStopClick() {
-        viewState.value = ViewState()
+        viewState.value = viewState.value!!.copy(isTrainingStarted = false, volume = 0)
         stopRecorder()
         handler.removeCallbacks(tickRunnable)
         createBreatheReport()
@@ -56,7 +84,9 @@ class MainViewModel(private val context: Application) : ViewModel() {
     }
 
     private fun measureAverageNoise() {
-
+        viewState.value = viewState.value!!.copy(isAverageNoiseMeasuring = true)
+        audioRecorder = createMediaRecorder().apply { start() }
+        averageNoiseRunnable.run()
     }
 
     private fun createBreatheReport() {
@@ -134,6 +164,7 @@ class MainViewModel(private val context: Application) : ViewModel() {
 
     companion object {
         private const val VOLUME_MEASURE_INTERVAL_IN_MILLIS = 100L
+        private const val AVERAGE_NOISE_MEASURE_TICK_COUNT = 10
         private const val AUDIO_FILE_EXT = ".wav"
         private const val INHALE_KOEF = 1.4f
         private const val EXHALATION_KOEF = 4f

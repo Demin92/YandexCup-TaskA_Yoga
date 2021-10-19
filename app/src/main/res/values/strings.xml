@@ -2,4 +2,5 @@
     <string name="app_name">TaskA_Yoga</string>
     <string name="start">Start</string>
     <string name="stop">Stop</string>
+    <string name="average_noise_measuring">Average Noise Measuring…</string>
 </resources>
